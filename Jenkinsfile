@@ -35,6 +35,8 @@ pipeline {
             }
         }
 
+ 
+
         stage('Artifactory Configuration') {
             steps {
                 container('build') {
@@ -64,6 +66,8 @@ pipeline {
         stage('Deploy Artifacts') {
             steps {
                 container('build') {
+                        withEnv(["JAVA_HOME=/opt/java/openjdk/jdk-21"]) {
+
                     rtMavenRun(
                         tool: "java",
                         useWrapper: true,
@@ -73,8 +77,12 @@ pipeline {
                         resolverId: "MAVEN_RESOLVER"
                     )
                 }
+                    
+                }
             }
         }
+
+        
 
         stage('Publish Build Info') {
             steps {
