@@ -29,7 +29,7 @@ pipeline {
             steps {
                 container('build') {
                     withSonarQubeEnv('sonar') {
-                        sh 'mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=ecom_ecom'
+                        sh './mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=ecom_ecom'
                     }
                 }
             }
@@ -87,11 +87,11 @@ pipeline {
         stage('Docker Build & Push') {
     steps {
         container('build') {
-            withDockerRegistry(credentialsId: 'docker') {
+            withDockerRegistry(credentialsId: 'docker' , url: 'https://hub.docker.com') {
                 script {
                     def customImage = docker.build("${IMAGE_NAME}:latest")
                     customImage.push()
-                    customImage.push('latest')
+                    
                 }
             }
         }
