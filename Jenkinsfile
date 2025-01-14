@@ -1,123 +1,115 @@
-def label = "agent"
-def mvn_version = 'M3'
-podTemplate(label: label, yaml: """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: build
-  annotations:
-    sidecar.istio.io/inject: "false"
-spec:
-  containers:
-  - name: build
-    image: amoghazy/jenkins-agent:latest
-    command:
-    - cat
-    tty: true
-    volumeMounts:
-    - name: dockersock
-      mountPath: /var/run/docker.sock
-  volumes:
-  - name: dockersock
-    hostPath:
-      path: /var/run/docker.sock
-"""
-) {
-    node (label) {
-        stage ('Checkout SCM'){
-          git credentialsId: 'git', url: 'https://dptrealtime@bitbucket.org/dptrealtime/eos-micro-services-admin.git', branch: 'master'
-          container('build') {
-                stage('Build a Maven project') {
-                  //withEnv( ["PATH+MAVEN=${tool mvn_version}/bin"] ) {
-                   //sh "mvn clean package"
-                  //  }
-                  sh './mvnw clean package' 
-                   //sh 'mvn clean package'
-                }
+pipeline {
+    agent {
+        kubernetes {
+            label 'agent'
+            defaultContainer 'build'
+        }
+    }
+    environment {
+        IMAGE_NAME = "amoghazy/eos-micro-services-admin"
+      
+    }
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                git credentialsId: '', url: 'https://github.com/amoghazy-organization/1-eos-micro-services-admin', branch: 'main'
             }
         }
-        stage ('Sonar Scan'){
-          container('build') {
-                stage('Sonar Scan') {
-                  withSonarQubeEnv('sonar') {
-                  sh './mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=eos_eos'
-                }
+
+        stage('Build a Maven Project') {
+            steps {
+                container('build') {
+                    sh './mvnw clean package'
+                   
                 }
             }
         }
 
-
-        stage ('Artifactory configuration'){
-          container('build') {
-                stage('Artifactory configuration') {
-                    rtServer (
-                    id: "jfrog",
-                    url: "https://eosartifact.jfrog.io/artifactory",
-                    credentialsId: "jfrog"
-                )
-
-                rtMavenDeployer (
-                    id: "MAVEN_DEPLOYER",
-                    serverId: "jfrog",
-                    releaseRepo: "eos-libs-release-local",
-                    snapshotRepo: "eos-libs-release-local"
-                )
-
-                rtMavenResolver (
-                    id: "MAVEN_RESOLVER",
-                    serverId: "jfrog",
-                    releaseRepo: "eos-libs-release",
-                    snapshotRepo: "eos-libs-release"
-                )            
-                }
-            }
-        }
-        stage ('Deploy Artifacts'){
-          container('build') {
-                stage('Deploy Artifacts') {
-                    rtMavenRun (
-                    tool: "java", // Tool name from Jenkins configuration
-                    useWrapper: true,
-                    pom: 'pom.xml',
-                    goals: 'clean install',
-                    deployerId: "MAVEN_DEPLOYER",
-                    resolverId: "MAVEN_RESOLVER"
-                  )
-                }
-            }
-        }
-        stage ('Publish build info') {
-            container('build') {
-                stage('Publish build info') {
-                rtPublishBuildInfo (
-                    serverId: "jfrog"
-                  )
-               }
-           }
-       }
-       stage ('Docker Build'){
-          container('build') {
-                stage('Build Image') {
-                  def imageTag = "${GIT_COMMIT.take(7)}"
-
-                    docker.withRegistry( 'https://registry.hub.docker.com', 'docker' ) {
-                    def customImage = docker.build("amoghazy/eos-micro-services-admin:latest")
-                    customImage.push()             
+        stage('Sonar Scan') {
+            steps {
+                container('build') {
+                    withSonarQubeEnv('sonar') {
+                        sh 'mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=ecom_ecom'
                     }
                 }
             }
         }
 
-        stage ('Helm Chart') {
-          container('build') {
-            dir('charts') {
-              withCredentials([usernamePassword(credentialsId: 'jfrog', usernameVariable: 'username', passwordVariable: 'password')]) {
-              sh '/usr/local/bin/helm package micro-services-admin'
-              sh '/usr/local/bin/helm push-artifactory micro-services-admin-1.0.tgz https://eosartifact.jfrog.io/artifactory/eos-helm-local --username $username --password $password'
-              }
+        stage('Artifactory Configuration') {
+            steps {
+                container('build') {
+                    rtServer(
+                        id: "jfrog",
+                        url: "https://triallekevd.jfrog.io/artifactory",
+                        credentialsId: "jfrog-cred"
+                    )
+
+                    rtMavenDeployer(
+                        id: "MAVEN_DEPLOYER",
+                        serverId: "jfrog",
+                        releaseRepo:  "ecom-libs-release-local",
+                        snapshotRepo: "ecom-libs-release-local"
+                    )
+
+                    rtMavenResolver(
+                        id: "MAVEN_RESOLVER",
+                        serverId: "jfrog",
+                        releaseRepo: "ecom-libs-release",
+                        snapshotRepo: "ecom-libs-release"
+                    )
+                }
             }
         }
+
+        stage('Deploy Artifacts') {
+            steps {
+                container('build') {
+                    rtMavenRun(
+                        tool: "java",
+                        useWrapper: true,
+                        pom: 'pom.xml',
+                        goals: 'clean install',
+                        deployerId: "MAVEN_DEPLOYER",
+                        resolverId: "MAVEN_RESOLVER"
+                    )
+                }
+            }
+        }
+
+        stage('Publish Build Info') {
+            steps {
+                container('build') {
+                    rtPublishBuildInfo(serverId: "jfrog")
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+    steps {
+        container('build') {
+            withDockerRegistry(credentialsId: 'docker') {
+                script {
+                    def customImage = docker.build("${IMAGE_NAME}:latest")
+                    customImage.push()
+                    customImage.push('latest')
+                }
+            }
+        }
+    }
+}
+
+
+        stage('Helm Chart Deployment') {
+            steps {
+                container('build') {
+                    dir('charts') {
+                        withCredentials([usernamePassword(credentialsId: 'jfrog-cred', usernameVariable: 'username', passwordVariable: 'password')]) {
+                            sh '/usr/local/bin/helm package micro-services-admin'
+                            sh "/usr/local/bin/helm push-artifactory micro-services-admin-1.0.tgz https://triallekevd.jfrog.io/artifactory/ecom-helm-local --username $username --password $password"
+                        }
+                    }
+                }
+            }
         }
     }
 }
