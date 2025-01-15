@@ -1,5 +1,5 @@
 FROM openjdk:11
-ADD target/ether-0.0.1-RELEASE.jar ether.jar
-CMD ["java","-jar","ether.jar"]
+ADD target/ether-0.0.1-RELEASE.jar admin-msvc.jar
+CMD ["java","-jar","admin-msvc.jar"]
 EXPOSE 8090
 

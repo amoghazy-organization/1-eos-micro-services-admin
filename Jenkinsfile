@@ -19,8 +19,8 @@ pipeline {
         stage('Build a Maven Project') {
             steps {
                 container('build') {
-                    sh './mvnw clean package'
-                   
+                   sh './mvnw clean package'
+
                 }
             }
         }
@@ -35,6 +35,7 @@ pipeline {
             }
         }
 
+ 
  
 
         stage('Artifactory Configuration') {
@@ -63,21 +64,20 @@ pipeline {
             }
         }
 
+
         stage('Deploy Artifacts') {
             steps {
                 container('build') {
-                        withEnv(["JAVA_HOME=/opt/java/openjdk/jdk-21"]) {
-
-                    rtMavenRun(
-                        tool: "java",
-                        useWrapper: true,
-                        pom: 'pom.xml',
-                        goals: 'clean install',
-                        deployerId: "MAVEN_DEPLOYER",
-                        resolverId: "MAVEN_RESOLVER"
-                    )
-                }
-                    
+                    withEnv(["JAVA_HOME=/opt/java/openjdk/jdk-21"]) {
+                        rtMavenRun(
+                            tool: "maven",
+                            useWrapper: true,
+                            pom: 'pom.xml',
+                            goals: 'deploy',  
+                            deployerId: "MAVEN_DEPLOYER",
+                            resolverId: "MAVEN_RESOLVER"
+                        )
+                    }
                 }
             }
         }
@@ -92,30 +92,30 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
-    steps {
-        container('build') {
-            withDockerRegistry(credentialsId: 'docker' , url: 'https://hub.docker.com') {
-                script {
-                    def customImage = docker.build("${IMAGE_NAME}:latest")
-                    customImage.push()
+//         stage('Docker Build & Push') {
+//     steps {
+//         container('build') {
+//             withDockerRegistry(credentialsId: 'docker' , url: 'https://hub.docker.com') {
+//                 script {
+//                     def customImage = docker.build("${IMAGE_NAME}:latest")
+//                     // customImage.push()
                     
-                }
-            }
-        }
-    }
-}
+//                 }
+//             }
+//         }
+//     }
+// }
 
 
-        stage('Helm Chart Deployment') {
+         stage('Helm Chart Deployment') {
             steps {
                 container('build') {
                     dir('charts') {
                         withCredentials([usernamePassword(credentialsId: 'jfrog-cred', usernameVariable: 'username', passwordVariable: 'password')]) {
-                            sh '/usr/local/bin/helm package micro-services-admin'
-                            sh "/usr/local/bin/helm push-artifactory micro-services-admin-1.0.tgz https://triallekevd.jfrog.io/artifactory/ecom-helm-local --username $username --password $password"
-                        }
-                    }
+                            sh '''/usr/local/bin/helm package micro-services-admin'
+                              curl -u ecomadmin:$password -T /home/jenkins/agent/workspace/micro-svc-admin-build/charts/micro-services-admin-1.0.tgz "https://triallekevd.jfrog.io/artifactory/ecom-helm-local/micro-services-admin-1.0.tgz" 
+                            '''
+                    }}
                 }
             }
         }
