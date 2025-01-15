@@ -112,7 +112,7 @@ pipeline {
                 container('build') {
                     dir('charts') {
                         withCredentials([usernamePassword(credentialsId: 'jfrog-cred', usernameVariable: 'username', passwordVariable: 'password')]) {
-                            sh '''/usr/local/bin/helm package micro-services-admin'
+                            sh '''/usr/local/bin/helm package micro-services-admin
                               curl -u ecomadmin:$password -T /home/jenkins/agent/workspace/micro-svc-admin-build/charts/micro-services-admin-1.0.tgz "https://triallekevd.jfrog.io/artifactory/ecom-helm-local/micro-services-admin-1.0.tgz" 
                             '''
                     }}

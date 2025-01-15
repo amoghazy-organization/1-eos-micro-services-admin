@@ -4,8 +4,8 @@ metadata:
   name: eos-micro-services-admin
 spec:
   rules:
-  # - host: {{ .Values.ingress.host }}
-  - http:
+  - host: {{ .Values.ingress.host }}
+    http:
       paths:
       - path: /
         pathType: Prefix
