@@ -1,8 +1,9 @@
 pipeline {
     agent {
         kubernetes {
-            label 'agent'
+              label 'agent'
             defaultContainer 'build'
+   
         }
     }
     environment {
@@ -19,8 +20,8 @@ pipeline {
         stage('Build a Maven Project') {
             steps {
                 container('build') {
-                   sh './mvnw clean package'
-
+                    sh './mvnw clean package'
+                   
                 }
             }
         }
@@ -91,20 +92,22 @@ pipeline {
                 }
             }
         }
+      
 
-//         stage('Docker Build & Push') {
-//     steps {
-//         container('build') {
-//             withDockerRegistry(credentialsId: 'docker' , url: 'https://hub.docker.com') {
-//                 script {
-//                     def customImage = docker.build("${IMAGE_NAME}:latest")
-//                     // customImage.push()
-                    
-//                 }
-//             }
-//         }
-//     }
-// }
+        stage('Docker Build & Push') {
+            steps {
+                container('build') {
+                    withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'docker') {
+                        script {
+                            
+                            def customImage = docker.build("${IMAGE_NAME}:latest")
+                            customImage.push()
+                        }
+                    }
+
+                }
+            }
+        }
 
 
          stage('Helm Chart Deployment') {
@@ -112,10 +115,16 @@ pipeline {
                 container('build') {
                     dir('charts') {
                         withCredentials([usernamePassword(credentialsId: 'jfrog-cred', usernameVariable: 'username', passwordVariable: 'password')]) {
-                            sh '''/usr/local/bin/helm package micro-services-admin
-                              curl -u ecomadmin:$password -T /home/jenkins/agent/workspace/micro-svc-admin-build/charts/micro-services-admin-1.0.tgz "https://triallekevd.jfrog.io/artifactory/ecom-helm-local/micro-services-admin-1.0.tgz" 
+                          sh ''' 
+                           
+                            /usr/local/bin/helm package micro-services-admin
+                            curl -u ecomadmin:$password -T /home/jenkins/agent/workspace/micro-svc-admin-build/charts/micro-services-admin-1.0.tgz "https://triallekevd.jfrog.io/artifactory/ecom-helm-local/micro-services-admin-1.0.tgz"
+                            
                             '''
-                    }}
+
+
+                        }
+                    }
                 }
             }
         }
